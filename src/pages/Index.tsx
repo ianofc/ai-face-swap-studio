@@ -1,16 +1,40 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useEffect } from "react";
+import { Header } from "@/components/Header";
+import { ImageUploader } from "@/components/ImageUploader";
+import { ModelGallery } from "@/components/ModelGallery";
+import { BatchProcessor } from "@/components/BatchProcessor";
+import { ResultsGallery } from "@/components/ResultsGallery";
+import { RefinementModal } from "@/components/RefinementModal";
+import { SettingsDialog } from "@/components/SettingsDialog";
+import { useAppStore } from "@/store/useAppStore";
 
-// IMPORTANT: Fully REPLACE this with your own code
-const PlaceholderIndex = () => {
-  // PLACEHOLDER: Replace this entire return statement with the user's app.
-  // The inline background color is intentionally not part of the design system.
+export default function Index() {
+  const darkMode = useAppStore((s) => s.darkMode);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", darkMode);
+  }, [darkMode]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#fcfbf8' }}>
-      <img data-lovable-blank-page-placeholder="REMOVE_THIS" src="/placeholder.svg" alt="Your app will live here!" />
+    <div className="min-h-screen bg-background text-foreground transition-colors">
+      <Header />
+      <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+          {/* Sidebar */}
+          <aside className="space-y-6">
+            <ImageUploader />
+          </aside>
+
+          {/* Main content */}
+          <div className="space-y-6">
+            <ModelGallery />
+            <BatchProcessor />
+            <ResultsGallery />
+          </div>
+        </div>
+      </main>
+      <RefinementModal />
+      <SettingsDialog />
     </div>
   );
-};
-
-const Index = PlaceholderIndex;
-
-export default Index;
+}
