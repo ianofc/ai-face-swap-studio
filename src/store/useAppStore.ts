@@ -13,6 +13,13 @@ export interface GeneratedResult {
   resultUrl: string;
   status: "pending" | "processing" | "success" | "error";
   errorMessage?: string;
+  createdAt?: number;
+}
+
+export interface HistoryEntry {
+  id: string;
+  resultUrl: string;
+  createdAt: number;
 }
 
 interface AppState {
@@ -20,10 +27,12 @@ interface AppState {
   targetFile: File | null;
   modelImages: ModelImage[];
   generatedResults: GeneratedResult[];
+  history: HistoryEntry[];
   isProcessingBatch: boolean;
   batchProgress: number;
   batchTotal: number;
   settingsOpen: boolean;
+  historyOpen: boolean;
   refinementResult: GeneratedResult | null;
   darkMode: boolean;
 
@@ -33,63 +42,68 @@ interface AppState {
   toggleModelSelection: (id: string) => void;
   selectAllModels: () => void;
   deselectAllModels: () => void;
-  setGeneratedResults: (results: GeneratedResult[]) => void;
   updateResult: (id: string, partial: Partial<GeneratedResult>) => void;
   addResult: (result: GeneratedResult) => void;
+  addToHistory: (entry: HistoryEntry) => void;
+  clearHistory: () => void;
   setProcessing: (v: boolean) => void;
   setBatchProgress: (current: number, total: number) => void;
   setSettingsOpen: (v: boolean) => void;
+  setHistoryOpen: (v: boolean) => void;
   setRefinementResult: (r: GeneratedResult | null) => void;
   toggleDarkMode: () => void;
   clearResults: () => void;
 }
 
+const STORAGE_KEY = "ai-photo-studio";
+
 const loadFromStorage = () => {
   try {
-    const data = localStorage.getItem("ai-photo-studio");
+    const data = localStorage.getItem(STORAGE_KEY);
     if (data) {
       const parsed = JSON.parse(data);
       return {
         generatedResults: parsed.generatedResults || [],
+        history: parsed.history || [],
         darkMode: parsed.darkMode ?? true,
       };
     }
   } catch {}
-  return { generatedResults: [], darkMode: true };
+  return { generatedResults: [], history: [], darkMode: true };
 };
 
-const saveToStorage = (state: Partial<AppState>) => {
+const persist = (partial: {
+  generatedResults?: GeneratedResult[];
+  history?: HistoryEntry[];
+  darkMode?: boolean;
+}) => {
   try {
+    const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
     localStorage.setItem(
-      "ai-photo-studio",
-      JSON.stringify({
-        generatedResults: state.generatedResults,
-        darkMode: state.darkMode,
-      })
+      STORAGE_KEY,
+      JSON.stringify({ ...current, ...partial })
     );
   } catch {}
 };
 
 const stored = loadFromStorage();
 
-export const useAppStore = create<AppState>((set, get) => ({
+export const useAppStore = create<AppState>((set) => ({
   targetImage: null,
   targetFile: null,
   modelImages: [],
   generatedResults: stored.generatedResults,
+  history: stored.history,
   isProcessingBatch: false,
   batchProgress: 0,
   batchTotal: 0,
   settingsOpen: false,
+  historyOpen: false,
   refinementResult: null,
   darkMode: stored.darkMode,
 
   setTargetImage: (url, file) => set({ targetImage: url, targetFile: file ?? null }),
-  addModelImages: (images) =>
-    set((s) => {
-      const updated = { modelImages: [...s.modelImages, ...images] };
-      return updated;
-    }),
+  addModelImages: (images) => set((s) => ({ modelImages: [...s.modelImages, ...images] })),
   removeModelImage: (id) =>
     set((s) => ({ modelImages: s.modelImages.filter((m) => m.id !== id) })),
   toggleModelSelection: (id) =>
@@ -99,46 +113,61 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     })),
   selectAllModels: () =>
-    set((s) => ({
-      modelImages: s.modelImages.map((m) => ({ ...m, selected: true })),
-    })),
+    set((s) => ({ modelImages: s.modelImages.map((m) => ({ ...m, selected: true })) })),
   deselectAllModels: () =>
-    set((s) => ({
-      modelImages: s.modelImages.map((m) => ({ ...m, selected: false })),
-    })),
-  setGeneratedResults: (results) => {
-    set({ generatedResults: results });
-    saveToStorage({ ...get(), generatedResults: results });
-  },
+    set((s) => ({ modelImages: s.modelImages.map((m) => ({ ...m, selected: false })) })),
   updateResult: (id, partial) => {
     set((s) => {
       const updated = s.generatedResults.map((r) =>
         r.id === id ? { ...r, ...partial } : r
       );
-      saveToStorage({ ...s, generatedResults: updated });
-      return { generatedResults: updated };
+      let history = s.history;
+      // Auto-add successful results to history
+      if (partial.status === "success" && partial.resultUrl) {
+        const already = history.find((h) => h.id === id);
+        if (!already) {
+          history = [
+            { id, resultUrl: partial.resultUrl, createdAt: Date.now() },
+            ...history,
+          ];
+        }
+      }
+      persist({ generatedResults: updated, history });
+      return { generatedResults: updated, history };
     });
   },
   addResult: (result) => {
     set((s) => {
-      const updated = [...s.generatedResults, result];
-      saveToStorage({ ...s, generatedResults: updated });
+      const updated = [...s.generatedResults, { ...result, createdAt: Date.now() }];
+      persist({ generatedResults: updated });
       return { generatedResults: updated };
     });
   },
+  addToHistory: (entry) =>
+    set((s) => {
+      const history = [entry, ...s.history];
+      persist({ history });
+      return { history };
+    }),
+  clearHistory: () =>
+    set(() => {
+      persist({ history: [] });
+      return { history: [] };
+    }),
   setProcessing: (v) => set({ isProcessingBatch: v }),
-  setBatchProgress: (current, total) =>
-    set({ batchProgress: current, batchTotal: total }),
+  setBatchProgress: (current, total) => set({ batchProgress: current, batchTotal: total }),
   setSettingsOpen: (v) => set({ settingsOpen: v }),
+  setHistoryOpen: (v) => set({ historyOpen: v }),
   setRefinementResult: (r) => set({ refinementResult: r }),
   toggleDarkMode: () =>
     set((s) => {
       const next = !s.darkMode;
-      saveToStorage({ ...s, darkMode: next });
+      persist({ darkMode: next });
       return { darkMode: next };
     }),
-  clearResults: () => {
-    set({ generatedResults: [] });
-    saveToStorage({ ...get(), generatedResults: [] });
-  },
+  clearResults: () =>
+    set(() => {
+      persist({ generatedResults: [] });
+      return { generatedResults: [] };
+    }),
 }));

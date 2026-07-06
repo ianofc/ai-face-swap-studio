@@ -6,6 +6,7 @@ import { BatchProcessor } from "@/components/BatchProcessor";
 import { ResultsGallery } from "@/components/ResultsGallery";
 import { RefinementModal } from "@/components/RefinementModal";
 import { SettingsDialog } from "@/components/SettingsDialog";
+import { HistoryDialog } from "@/components/HistoryDialog";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function Index() {
@@ -35,6 +36,7 @@ export default function Index() {
       </main>
       <RefinementModal />
       <SettingsDialog />
+      <HistoryDialog />
     </div>
   );
 }

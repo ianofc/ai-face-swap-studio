@@ -21,8 +21,8 @@ serve(async (req) => {
       );
     }
 
-    // Use Gemini 2.0 Flash experimental image generation
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_API_KEY}`;
+    // Gemini 2.5 Flash Image (Nano Banana) - supports multi-image composition
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GOOGLE_API_KEY}`;
 
     let parts: any[];
 
@@ -62,9 +62,6 @@ serve(async (req) => {
 
     const payload = {
       contents: [{ parts }],
-      generationConfig: {
-        responseModalities: ["TEXT", "IMAGE"],
-      },
     };
 
     console.log("Calling Gemini API for", mode === "refine" ? "refinement" : "composition");
